@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Payment {
+  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  amount           Decimal       @db.Decimal(10, 2)
+  description      String?
+  status           PaymentStatus @default(PENDING)
+  method           PaymentMethod @default(BANK_TRANSFER)
+  serviceId        String        @db.VarChar(255)
+  serviceType      String        @db.VarChar(50)
+  paymentCode      String?       @unique @db.VarChar(50)
+  payosOrderId     String?       @db.VarChar(255)
+  payosCheckoutUrl String?
+  qrCode           String?
+  returnUrl        String?
+  cancelUrl        String?
+  expiredAt        DateTime?     @db.Timestamp(6)
+  completedAt      DateTime?     @db.Timestamp(6)
+  createdAt        DateTime      @default(now()) @db.Timestamp(6)
+  updatedAt        DateTime      @default(now()) @db.Timestamp(6)
+  Transaction      Transaction[]
+
+  @@index([paymentCode], map: "payment_paymentCode_idx")
+  @@index([serviceId], map: "payment_serviceId_idx")
+  @@index([status], map: "payment_status_idx")
+}
+
+model Transaction {
+  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  paymentId         String            @db.Uuid
+  amount            Decimal           @db.Decimal(10, 2)
+  status            TransactionStatus @default(PENDING)
+  transactionCode   String?           @unique @db.VarChar(50)
+  bankTransactionId String?           @db.VarChar(255)
+  bankCode          String?           @db.VarChar(50)
+  paymentMethod     PaymentMethod     @default(BANK_TRANSFER)
+  description       String?
+  createdAt         DateTime          @default(now()) @db.Timestamp(6)
+  updatedAt         DateTime          @default(now()) @db.Timestamp(6)
+  Payment           Payment           @relation(fields: [paymentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([paymentId], map: "transaction_paymentId_idx")
+  @@index([status], map: "transaction_status_idx")
+  @@index([transactionCode], map: "transaction_transactionCode_idx")
+}
+
+enum PaymentMethod {
+  BANK_TRANSFER
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  EXPIRED
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
