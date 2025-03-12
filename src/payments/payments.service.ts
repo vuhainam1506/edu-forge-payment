@@ -1,7 +1,7 @@
-// src/payments/payments.service.ts
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException } from '@nestjs/common';
 const PayOS = require('@payos/node');
-require('dotenv').config();
+import {Resend} from 'resend';
+require('dotenv').config(); // Load .env
 
 @Injectable()
 export class PaymentsService {
@@ -10,7 +10,7 @@ export class PaymentsService {
 
   constructor() {
     try {
-      this.logger.log('Initializing PayOS instance');
+      this.logger.log('Tao payos instance');
       this.payos = new PayOS(
         process.env.PAYOS_CLIENT_ID,
         process.env.PAYOS_API_KEY,
@@ -24,23 +24,28 @@ export class PaymentsService {
   }
 
   async createPaymentLink(amount: number, orderCode: number, description: string): Promise<string> {
-    try {
-      this.logger.log(`Creating payment link for order ${orderCode} with amount ${amount}`);
-      
-      const paymentData = {
-        orderCode,
-        amount,
-        description,
-        returnUrl: process.env.DEFAULT_RETURN_URL || 'http://localhost:3000/payment/success',
-        cancelUrl: process.env.DEFAULT_CANCEL_URL || 'http://localhost:3000/payment/expired',
-      };
+    const paymentData = {
+      orderCode,
+      amount,
+      description,
+      returnUrl: process.env.DEFAULT_RETURN_URL,
+      cancelUrl: process.env.DEFAULT_CANCEL_URL,
+    };
 
+    try {
       const paymentLink = await this.payos.createPaymentLink(paymentData);
-      this.logger.log(`Payment link created successfully: ${paymentLink.checkoutUrl}`);
-      
+      // Lay api key tu env
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: 'Acme <payment@eduforge.io.vn>',
+        to: ['thinhdz1500@gmail.com'],
+        subject: 'Thanh toán khóa học thành công',
+        html: 'Chúc mừng bạn đã đăng ký khóa học thành công',
+      });
+
       return paymentLink.checkoutUrl;
     } catch (error) {
-      this.logger.error(`Error creating payment link: ${error.message}`, error.stack);
+      this.logger.error('Error creating payment link', error);
       throw error;
     }
   }
