@@ -8,65 +8,37 @@ datasource db {
 }
 
 model Payment {
-  id               String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  amount           Decimal       @db.Decimal(10, 2)
-  description      String?
-  status           PaymentStatus @default(PENDING)
-  method           PaymentMethod @default(BANK_TRANSFER)
-  serviceId        String        @db.VarChar(255)
-  serviceType      String        @db.VarChar(50)
-  paymentCode      String?       @unique @db.VarChar(50)
-  payosOrderId     String?       @db.VarChar(255)
-  payosCheckoutUrl String?
-  qrCode           String?
-  returnUrl        String?
-  cancelUrl        String?
-  expiredAt        DateTime?     @db.Timestamp(6)
-  completedAt      DateTime?     @db.Timestamp(6)
-  createdAt        DateTime      @default(now()) @db.Timestamp(6)
-  updatedAt        DateTime      @default(now()) @db.Timestamp(6)
-  Transaction      Transaction[]
+  id          String         @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  amount      Decimal        @db.Decimal(10, 2)
+  method      payment_method @default(BANK_TRANSFER)
+  serviceName String         @default("Enrollment") @db.VarChar(255)
+  ordercode   String?        @unique @db.VarChar(50)
+  description String?
+  returnUrl   String?
+  cancelUrl   String?
+  status      payment_status @default(PENDING)
+  userId      String?        @db.VarChar(255)
+  serviceId   String?        @db.VarChar(255)
+  createdAt   DateTime       @default(now()) @db.Timestamp(6)
+  updatedAt   DateTime       @default(now()) @db.Timestamp(6)
+  checkoutUrl String?        @db.VarChar(500)
+  metadata    Json?
 
-  @@index([paymentCode], map: "payment_paymentCode_idx")
   @@index([serviceId], map: "payment_serviceId_idx")
   @@index([status], map: "payment_status_idx")
+  @@index([ordercode], map: "payment_ordercode_idx")
+  @@index([userId], map: "payment_userId_idx")
 }
 
-model Transaction {
-  id                String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  paymentId         String            @db.Uuid
-  amount            Decimal           @db.Decimal(10, 2)
-  status            TransactionStatus @default(PENDING)
-  transactionCode   String?           @unique @db.VarChar(50)
-  bankTransactionId String?           @db.VarChar(255)
-  bankCode          String?           @db.VarChar(50)
-  paymentMethod     PaymentMethod     @default(BANK_TRANSFER)
-  description       String?
-  createdAt         DateTime          @default(now()) @db.Timestamp(6)
-  updatedAt         DateTime          @default(now()) @db.Timestamp(6)
-  Payment           Payment           @relation(fields: [paymentId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([paymentId], map: "transaction_paymentId_idx")
-  @@index([status], map: "transaction_status_idx")
-  @@index([transactionCode], map: "transaction_transactionCode_idx")
-}
-
-enum PaymentMethod {
+enum payment_method {
   BANK_TRANSFER
 }
 
-enum PaymentStatus {
+enum payment_status {
   PENDING
   PROCESSING
   COMPLETED
   FAILED
   CANCELLED
   EXPIRED
-}
-
-enum TransactionStatus {
-  PENDING
-  COMPLETED
-  FAILED
-  REFUNDED
 }
