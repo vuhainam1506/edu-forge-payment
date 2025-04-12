@@ -260,5 +260,23 @@ export class PaymentsService {
       throw error
     }
   }
+
+  async getAllPayments() {
+    try {
+      const payments = await this.prisma.payment.findMany({
+        orderBy: {
+          createdAt: 'desc'
+        }
+      });
+      
+      return {
+        data: payments,
+        total: payments.length
+      };
+    } catch (error) {
+      this.logger.error('Error getting all payments', error);
+      throw error;
+    }
+  }
 }
 

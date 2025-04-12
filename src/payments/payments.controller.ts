@@ -1,5 +1,5 @@
 // src/payments/payments.controller.ts
-import { Controller, Get, Post, Body, Param, Put, Logger, Headers, BadRequestException } from "@nestjs/common"
+import { Controller, Get, Post, Body, Param, Put, Logger, Headers, BadRequestException, Query, DefaultValuePipe, ParseIntPipe } from "@nestjs/common"
 import  { PaymentsService } from "./payments.service"
 import  { payment_status } from "@prisma/client"
 
@@ -86,6 +86,12 @@ export class PaymentsController {
     // }
 
     return this.paymentsService.handlePaymentWebhook(data)
+  }
+
+  @Get()
+  async getAllPayments() {
+    this.logger.log('Getting all payments');
+    return this.paymentsService.getAllPayments();
   }
 }
 
