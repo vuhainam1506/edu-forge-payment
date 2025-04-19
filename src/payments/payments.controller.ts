@@ -3,7 +3,7 @@ import { Controller, Get, Post, Body, Param, Put, Logger, Headers, BadRequestExc
 import  { PaymentsService } from "./payments.service"
 import  { payment_status } from "@prisma/client"
 
-@Controller("payments")
+@Controller("")
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name)
 
