@@ -3,7 +3,7 @@ import { Controller, Get, Post, Body, Param, Put, Logger, Headers, BadRequestExc
 import  { PaymentsService } from "./payments.service"
 import  { payment_status } from "@prisma/client"
 
-@Controller("")
+@Controller("payments")
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name)
 
@@ -23,7 +23,7 @@ export class PaymentsController {
     metadata?: any;
   }) {
     this.logger.log(`Creating payment: ${JSON.stringify(paymentData)}`);
-    
+
     // Validate required fields
     if (!paymentData.amount || !paymentData.description) {
       throw new BadRequestException('Missing required fields: amount or description');

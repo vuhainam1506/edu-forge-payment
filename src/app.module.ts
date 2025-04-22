@@ -3,8 +3,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { HttpModule } from '@nestjs/axios'; // Import HttpModule
 import { PaymentsModule } from './payments/payments.module';
-import { PaymentsController } from './payments/payments.controller';
-import { Payments } from './payments/payments';
+
+
 @Module({
   imports: [
     ConfigModule.forRoot({
@@ -14,7 +14,7 @@ import { Payments } from './payments/payments';
     HttpModule, // Add HttpModule to imports
     PaymentsModule,
   ],
-  controllers: [PaymentsController],
-  providers: [Payments],
+  controllers: [],
+  providers: [],
 })
 export class AppModule {}
