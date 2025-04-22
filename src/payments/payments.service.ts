@@ -3,6 +3,7 @@ import { PrismaClient, type payment_status, type payment_method } from "@prisma/
 const PayOS = require("@payos/node")
 import { Resend } from "resend"
 require("dotenv").config() // Load .env
+import axios from 'axios';
 
 @Injectable()
 export class PaymentsService {
@@ -143,9 +144,10 @@ export class PaymentsService {
         },
       })
 
-      // Nếu thanh toán thành công, gửi email thông báo
-      if (status === "COMPLETED") {
+      // Nếu thanh toán thành công
+      if (status === "COMPLETED" && payment.metadata) {
         try {
+          // Gửi email thông báo
           const resend = new Resend(process.env.RESEND_API_KEY)
           await resend.emails.send({
             from: "Acme <payment@eduforge.io.vn>",
@@ -157,9 +159,25 @@ export class PaymentsService {
               <p>Số tiền: ${payment.amount} VND</p>
             `,
           })
-        } catch (emailError) {
-          this.logger.error("Error sending email notification", emailError)
-          // Không throw error ở đây, vẫn tiếp tục flow
+
+          // Tự động tạo enrollment sau khi thanh toán thành công
+          const enrollmentApi = axios.create({
+            baseURL: process.env.ENROLLMENT_SERVICE_URL || 'http://localhost:3002'
+          });
+
+          await enrollmentApi.post('/api/v1/enrollments', {
+            courseId: payment.metadata.courseId,
+            userId: payment.metadata.userId,
+            userName: payment.metadata.userName,
+            courseName: payment.metadata.courseName,
+            isFree: false,
+            paymentId: payment.id,
+            status: "ACTIVE"
+          });
+
+        } catch (error) {
+          this.logger.error("Error in post-payment processing:", error)
+          // Không throw error để không ảnh hưởng đến flow chính
         }
       }
 
@@ -223,41 +241,57 @@ export class PaymentsService {
   // Xử lý webhook từ PayOS
   async handlePaymentWebhook(data: any) {
     try {
-      const { orderCode, amount, status } = data
-
-      // Ensure orderCode is a number
-      const orderCodeNum = typeof orderCode === "string" ? Number.parseInt(orderCode) : orderCode
-      const orderCodeStr = orderCodeNum.toString()
+      const { orderCode, status } = data;
+      const orderCodeStr = orderCode.toString();
 
       // Tìm payment theo orderCode
-      const payment = await this.getPaymentByOrderCode(orderCodeStr)
+      const payment = await this.getPaymentByOrderCode(orderCodeStr);
 
       // Cập nhật trạng thái payment
-      let paymentStatus: payment_status
-
+      let paymentStatus: payment_status;
       switch (status) {
         case "PAID":
-          paymentStatus = "COMPLETED"
-          break
+          paymentStatus = "COMPLETED";
+          // Tạo enrollment khi thanh toán thành công
+          if (payment.metadata) {
+            try {
+              const enrollmentApi = await axios.create({
+                baseURL: process.env.ENROLLMENT_SERVICE_URL
+              });
+              
+              await enrollmentApi.post("/enrollments", {
+                courseId: payment.metadata.courseId,
+                userId: payment.metadata.userId,
+                userName: payment.metadata.userName,
+                courseName: payment.metadata.courseName,
+                isFree: false,
+                paymentId: payment.id
+              });
+            } catch (enrollError) {
+              this.logger.error("Error creating enrollment:", enrollError);
+            }
+          }
+          break;
         case "CANCELLED":
-          paymentStatus = "CANCELLED"
-          break
+          paymentStatus = "CANCELLED";
+          break;
         case "EXPIRED":
-          paymentStatus = "EXPIRED"
-          break
+          paymentStatus = "EXPIRED";
+          break;
         case "FAILED":
-          paymentStatus = "FAILED"
-          break
+          paymentStatus = "FAILED";
+          break;
         default:
-          paymentStatus = "PENDING"
+          paymentStatus = "PENDING";
       }
 
-      await this.updatePaymentStatus(payment.id, paymentStatus)
+      // Cập nhật trạng thái payment
+      await this.updatePaymentStatusByOrderCode(orderCodeStr, paymentStatus);
 
-      return { success: true }
+      return { success: true };
     } catch (error) {
-      this.logger.error("Error handling payment webhook", error)
-      throw error
+      this.logger.error("Error handling payment webhook:", error);
+      throw error;
     }
   }
 
