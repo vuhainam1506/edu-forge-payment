@@ -1,0 +1,485 @@
+{
+  "info": {
+    "name": "Payment Service API Tests",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Payment Endpoints",
+      "item": [
+        {
+          "name": "Create Payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": ["{{base_url}}"],
+              "path": ["payments"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 500000,\n    \"description\": \"Thanh toán khóa học Lập trình Web\",\n    \"method\": \"BANK_TRANSFER\",\n    \"serviceName\": \"Enrollment\",\n    \"userId\": \"user-123\",\n    \"serviceId\": \"course-456\",\n    \"returnUrl\": \"https://example.com/success\",\n    \"cancelUrl\": \"https://example.com/cancel\",\n    \"metadata\": { \n        \"courseId\": \"course-456\", \n        \"userId\": \"user-123\",\n        \"userName\": \"Nguyễn Văn A\",\n        \"courseName\": \"Lập trình Web\"\n    }\n}"
+            },
+            "description": "Tạo một giao dịch thanh toán mới"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has required fields\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('id');",
+                  "    pm.expect(responseJson).to.have.property('orderCode');",
+                  "    pm.expect(responseJson).to.have.property('checkoutUrl');",
+                  "});",
+                  "",
+                  "// Lưu orderCode để sử dụng trong các request tiếp theo",
+                  "if (pm.response.code === 201) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.environment.set(\"payment_order_code\", responseJson.orderCode);",
+                  "    pm.environment.set(\"payment_id\", responseJson.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get All Payments",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": ["{{base_url}}"],
+              "path": ["payments"]
+            },
+            "description": "Lấy danh sách tất cả các giao dịch thanh toán"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Response is an array\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(Array.isArray(responseJson)).to.be.true;",
+                  "});",
+                  "",
+                  "pm.test(\"Each payment has required fields\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    if (responseJson.length > 0) {",
+                  "        const payment = responseJson[0];",
+                  "        pm.expect(payment).to.have.property('id');",
+                  "        pm.expect(payment).to.have.property('amount');",
+                  "        pm.expect(payment).to.have.property('ordercode');",
+                  "        pm.expect(payment).to.have.property('status');",
+                  "    }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/{{payment_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "{{payment_id}}"]
+            },
+            "description": "Lấy thông tin chi tiết của một giao dịch thanh toán theo ID"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Payment has correct ID\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.id).to.eql(pm.environment.get(\"payment_id\"));",
+                  "});",
+                  "",
+                  "pm.test(\"Payment has required fields\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('id');",
+                  "    pm.expect(responseJson).to.have.property('amount');",
+                  "    pm.expect(responseJson).to.have.property('ordercode');",
+                  "    pm.expect(responseJson).to.have.property('status');",
+                  "    pm.expect(responseJson).to.have.property('description');",
+                  "    pm.expect(responseJson).to.have.property('checkoutUrl');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment by Order Code",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/order/{{payment_order_code}}",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "order", "{{payment_order_code}}"]
+            },
+            "description": "Lấy thông tin chi tiết của một giao dịch thanh toán theo mã đơn hàng"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Payment has correct order code\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.ordercode).to.eql(pm.environment.get(\"payment_order_code\").toString());",
+                  "});",
+                  "",
+                  "pm.test(\"Payment has required fields\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('id');",
+                  "    pm.expect(responseJson).to.have.property('amount');",
+                  "    pm.expect(responseJson).to.have.property('ordercode');",
+                  "    pm.expect(responseJson).to.have.property('status');",
+                  "    pm.expect(responseJson).to.have.property('description');",
+                  "    pm.expect(responseJson).to.have.property('checkoutUrl');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Payment Status by ID",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments/{{payment_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "{{payment_id}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"COMPLETED\"\n}"
+            },
+            "description": "Cập nhật trạng thái của một giao dịch thanh toán theo ID"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Payment status is updated correctly\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.status).to.eql(\"COMPLETED\");",
+                  "});",
+                  "",
+                  "pm.test(\"Payment has correct ID\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.id).to.eql(pm.environment.get(\"payment_id\"));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Payment Status by Order Code",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments/order/{{payment_order_code}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "order", "{{payment_order_code}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"PENDING\"\n}"
+            },
+            "description": "Cập nhật trạng thái của một giao dịch thanh toán theo mã đơn hàng"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 200\", function () {",
+                  "    pm.response.to.have.status(200);",
+                  "});",
+                  "",
+                  "pm.test(\"Payment status is updated correctly\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.status).to.eql(\"PENDING\");",
+                  "});",
+                  "",
+                  "pm.test(\"Payment has correct order code\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson.ordercode).to.eql(pm.environment.get(\"payment_order_code\").toString());",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create Payment with Free Course",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": ["{{base_url}}"],
+              "path": ["payments"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 0,\n    \"description\": \"Đăng ký khóa học miễn phí\",\n    \"method\": \"FREE\",\n    \"serviceName\": \"Enrollment\",\n    \"userId\": \"user-456\",\n    \"serviceId\": \"free-course-123\",\n    \"returnUrl\": \"https://example.com/success\",\n    \"cancelUrl\": \"https://example.com/cancel\",\n    \"metadata\": { \n        \"courseId\": \"free-course-123\", \n        \"userId\": \"user-456\",\n        \"userName\": \"Trần Thị B\",\n        \"courseName\": \"Khóa học Python cơ bản\"\n    }\n}"
+            },
+            "description": "Tạo một giao dịch thanh toán cho khóa học miễn phí"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Response has required fields\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('id');",
+                  "    pm.expect(responseJson).to.have.property('orderCode');",
+                  "    pm.expect(responseJson).to.have.property('checkoutUrl');",
+                  "});",
+                  "",
+                  "// Lưu orderCode của khóa học miễn phí",
+                  "if (pm.response.code === 201) {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.environment.set(\"free_payment_order_code\", responseJson.orderCode);",
+                  "    pm.environment.set(\"free_payment_id\", responseJson.id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Simulate Payment Webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-payos-signature",
+                "value": "test-signature"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments/webhook",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "webhook"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"orderCode\": \"{{payment_order_code}}\",\n    \"status\": \"PAID\",\n    \"amount\": 500000,\n    \"description\": \"Thanh toán khóa học Lập trình Web\",\n    \"transactionId\": \"TRANS-123456\"\n}"
+            },
+            "description": "Mô phỏng webhook từ cổng thanh toán"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 201\", function () {",
+                  "    pm.response.to.have.status(201);",
+                  "});",
+                  "",
+                  "pm.test(\"Webhook processed successfully\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('success');",
+                  "    pm.expect(responseJson.success).to.be.true;",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Error Handling Tests",
+      "item": [
+        {
+          "name": "Create Payment with Missing Required Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments",
+              "host": ["{{base_url}}"],
+              "path": ["payments"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"amount\": 500000\n}"
+            },
+            "description": "Tạo một giao dịch thanh toán thiếu trường bắt buộc"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message mentions missing fields\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('message');",
+                  "    pm.expect(responseJson.message).to.include('Missing required fields');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Payment with Invalid ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/payments/invalid-id",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "invalid-id"]
+            },
+            "description": "Lấy thông tin chi tiết của một giao dịch thanh toán với ID không hợp lệ"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400 or 404\", function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([400, 404]);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message mentions not found\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property('message');",
+                  "    pm.expect(responseJson.message).to.include('not found');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update Payment Status with Invalid Status",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/payments/{{payment_id}}/status",
+              "host": ["{{base_url}}"],
+              "path": ["payments", "{{payment_id}}", "status"]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"status\": \"INVALID_STATUS\"\n}"
+            },
+            "description": "Cập nhật trạng thái của một giao dịch thanh toán với trạng thái không hợp lệ"
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"Status code is 400\", function () {",
+                  "    pm.response.to.have.status(400);",
+                  "});",
+                  "",
+                  "pm.test(\"Error message mentions invalid status\", function () {",
+                  "    const responseJson = pm.response.json();",
+                  "    pm.expect(responseJson).to.have.property
