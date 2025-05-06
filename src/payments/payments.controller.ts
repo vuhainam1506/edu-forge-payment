@@ -1,14 +1,38 @@
 // src/payments/payments.controller.ts
 import { Controller, Get, Post, Body, Param, Put, Logger, Headers, BadRequestException, Query, DefaultValuePipe, ParseIntPipe } from "@nestjs/common"
-import  { PaymentsService } from "./payments.service"
-import  { payment_status } from "@prisma/client"
+import { PaymentsService } from "./payments.service"
+import { payment_status } from "@prisma/client"
 
+/**
+ * Controller quản lý các API liên quan đến thanh toán
+ * Cung cấp các endpoint để tạo, truy vấn và cập nhật thông tin thanh toán
+ */
 @Controller("payments")
 export class PaymentsController {
   private readonly logger = new Logger(PaymentsController.name)
 
   constructor(private readonly paymentsService: PaymentsService) {}
 
+  /**
+   * Tạo một giao dịch thanh toán mới
+   * 
+   * @param paymentData Dữ liệu thanh toán bao gồm số tiền, mô tả và các thông tin khác
+   * @returns Thông tin thanh toán đã tạo bao gồm ID, mã đơn hàng và URL thanh toán
+   * 
+   * @example
+   * POST /api/v1/payments
+   * Body: {
+   *   "amount": 500000,
+   *   "description": "Thanh toán khóa học Lập trình Web",
+   *   "method": "BANK_TRANSFER",
+   *   "serviceName": "Enrollment",
+   *   "userId": "user-123",
+   *   "serviceId": "course-456",
+   *   "returnUrl": "https://example.com/success",
+   *   "cancelUrl": "https://example.com/cancel",
+   *   "metadata": { "courseId": "course-456", "userId": "user-123" }
+   * }
+   */
   @Post()
   async create(@Body() paymentData: {
     amount: number;
@@ -52,30 +76,83 @@ export class PaymentsController {
     return result;
   }
 
+  /**
+   * Lấy thông tin chi tiết của một giao dịch thanh toán theo ID
+   * 
+   * @param id ID của giao dịch thanh toán
+   * @returns Thông tin chi tiết của giao dịch thanh toán
+   * 
+   * @example
+   * GET /api/v1/payments/123e4567-e89b-12d3-a456-426614174000
+   */
   @Get(':id')
   async getPayment(@Param('id') id: string) {
     this.logger.log(`Getting payment with ID: ${id}`);
     return this.paymentsService.getPaymentById(id);
   }
 
+  /**
+   * Lấy thông tin chi tiết của một giao dịch thanh toán theo mã đơn hàng
+   * 
+   * @param orderCode Mã đơn hàng của giao dịch thanh toán
+   * @returns Thông tin chi tiết của giao dịch thanh toán
+   * 
+   * @example
+   * GET /api/v1/payments/order/230506095712
+   */
   @Get('order/:orderCode')
   async getPaymentByOrderCode(@Param('orderCode') orderCode: string) {
     this.logger.log(`Getting payment with order code: ${orderCode}`);
     return this.paymentsService.getPaymentByOrderCode(orderCode);
   }
 
+  /**
+   * Cập nhật trạng thái của một giao dịch thanh toán theo ID
+   * 
+   * @param id ID của giao dịch thanh toán
+   * @param status Trạng thái mới của giao dịch thanh toán (PENDING, COMPLETED, CANCELLED, FAILED, EXPIRED)
+   * @returns Thông tin giao dịch thanh toán đã được cập nhật
+   * 
+   * @example
+   * PUT /api/v1/payments/123e4567-e89b-12d3-a456-426614174000/status
+   * Body: { "status": "COMPLETED" }
+   */
   @Put(":id/status")
   async updateStatus(@Param('id') id: string, @Body('status') status: payment_status) {
     this.logger.log(`Updating payment ${id} status to ${status}`)
     return this.paymentsService.updatePaymentStatus(id, status)
   }
 
+  /**
+   * Cập nhật trạng thái của một giao dịch thanh toán theo mã đơn hàng
+   * 
+   * @param orderCode Mã đơn hàng của giao dịch thanh toán
+   * @param status Trạng thái mới của giao dịch thanh toán (PENDING, COMPLETED, CANCELLED, FAILED, EXPIRED)
+   * @returns Thông tin giao dịch thanh toán đã được cập nhật
+   * 
+   * @example
+   * PUT /api/v1/payments/order/230506095712/status
+   * Body: { "status": "COMPLETED" }
+   */
   @Put("order/:orderCode/status")
   async updateStatusByOrderCode(@Param('orderCode') orderCode: string, @Body('status') status: payment_status) {
     this.logger.log(`Updating payment with order code ${orderCode} status to ${status}`)
     return this.paymentsService.updatePaymentStatusByOrderCode(orderCode, status)
   }
 
+  /**
+   * Xử lý webhook từ cổng thanh toán (PayOS)
+   * Cập nhật trạng thái thanh toán và thực hiện các hành động liên quan
+   * 
+   * @param data Dữ liệu từ cổng thanh toán
+   * @param signature Chữ ký xác thực từ cổng thanh toán
+   * @returns Kết quả xử lý webhook
+   * 
+   * @example
+   * POST /api/v1/payments/webhook
+   * Headers: { "x-payos-signature": "abc123..." }
+   * Body: { "orderCode": "230506095712", "status": "PAID", ... }
+   */
   @Post("webhook")
   async handleWebhook(@Body() data: any, @Headers('x-payos-signature') signature: string) {
     this.logger.log(`Received payment webhook: ${JSON.stringify(data)}`)
@@ -88,6 +165,14 @@ export class PaymentsController {
     return this.paymentsService.handlePaymentWebhook(data)
   }
 
+  /**
+   * Lấy danh sách tất cả các giao dịch thanh toán
+   * 
+   * @returns Danh sách các giao dịch thanh toán
+   * 
+   * @example
+   * GET /api/v1/payments
+   */
   @Get()
   async getAllPayments() {
     this.logger.log('Getting all payments');
