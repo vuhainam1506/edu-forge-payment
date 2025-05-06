@@ -23,7 +23,14 @@ export class PaymentsService {
     }
   }
 
-  // Create payment and save to DB
+  /**
+   * Tạo một giao dịch thanh toán mới
+   * - Tạo payment link với PayOS
+   * - Lưu thông tin thanh toán vào database
+   * 
+   * @param data Dữ liệu thanh toán
+   * @returns Thông tin thanh toán đã tạo bao gồm ID, mã đơn hàng và URL thanh toán
+   */
   async createPayment(data: {
     amount: number
     ordercode: string | number
@@ -94,6 +101,13 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Lấy thông tin chi tiết của một giao dịch thanh toán theo ID
+   * 
+   * @param id ID của giao dịch thanh toán
+   * @returns Thông tin chi tiết của giao dịch thanh toán
+   * @throws BadRequestException nếu không tìm thấy giao dịch thanh toán
+   */
   async getPaymentById(id: string) {
     try {
       const payment = await this.prisma.payment.findUnique({
@@ -111,12 +125,17 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Lấy thông tin chi tiết của một giao dịch thanh toán theo mã đơn hàng
+   * 
+   * @param orderCode Mã đơn hàng của giao dịch thanh toán
+   * @returns Thông tin chi tiết của giao dịch thanh toán
+   * @throws BadRequestException nếu không tìm thấy giao dịch thanh toán
+   */
   async getPaymentByOrderCode(orderCode: string | number) {
     try {
       // Đảm bảo orderCode là string
       const orderCodeStr = orderCode.toString()
-      this.logger.log(`Getting payment with orderCode: ${orderCodeStr}`)
-
       this.logger.log(`Getting payment with orderCode: ${orderCodeStr}`)
 
       const payment = await this.prisma.payment.findUnique({
@@ -134,9 +153,24 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Cập nhật trạng thái của một giao dịch thanh toán
+   * 
+   * @param id ID của giao dịch thanh toán
+   * @param status Trạng thái mới của giao dịch thanh toán
+   * @returns Thông tin giao dịch thanh toán đã được cập nhật
+   */
   async updatePaymentStatus(id: string, status: payment_status) {
     try {
-      const payment = await this.prisma.payment.update({
+      const payment = await this.prisma.payment.findUnique({
+        where: { id },
+      })
+
+      if (!payment) {
+        throw new BadRequestException(`Payment with ID ${id} not found`)
+      }
+
+      const updatedPayment = await this.prisma.payment.update({
         where: { id },
         data: {
           status,
@@ -144,50 +178,22 @@ export class PaymentsService {
         },
       })
 
-      // Nếu thanh toán thành công
-      if (status === "COMPLETED" && payment.metadata) {
-        try {
-          // Gửi email thông báo
-          const resend = new Resend(process.env.RESEND_API_KEY)
-          await resend.emails.send({
-            from: "Acme <payment@eduforge.io.vn>",
-            to: ["thinhdz1500@gmail.com"], // Thay bằng email thật từ user service
-            subject: "Thanh toán khóa học thành công",
-            html: `
-              <h1>Thanh toán thành công</h1>
-              <p>Cảm ơn bạn đã thanh toán. Mã đơn hàng của bạn là: ${payment.ordercode}</p>
-              <p>Số tiền: ${payment.amount} VND</p>
-            `,
-          })
-
-          // Tự động tạo enrollment sau khi thanh toán thành công
-          const enrollmentApi = axios.create({
-            baseURL: process.env.ENROLLMENT_SERVICE_URL || 'http://localhost:3002'
-          });
-
-          await enrollmentApi.post('/api/v1/enrollments', {
-            courseId: payment.metadata.courseId,
-            userId: payment.metadata.userId,
-            userName: payment.metadata.userName,
-            courseName: payment.metadata.courseName,
-            isFree: false,
-            paymentId: payment.id,
-            status: "ACTIVE"
-          });
-
-        } catch (error) {
-          this.logger.error("Error in post-payment processing:", error)
-          // Không throw error để không ảnh hưởng đến flow chính
-        }
-      }
-
-      return payment
+      return updatedPayment
     } catch (error) {
       this.logger.error(`Error updating payment status for ID ${id}`, error)
       throw error
     }
   }
 
+  /**
+   * Cập nhật trạng thái của một giao dịch thanh toán theo mã đơn hàng
+   * Nếu trạng thái là COMPLETED, gửi email thông báo
+   * 
+   * @param orderCode Mã đơn hàng của giao dịch thanh toán
+   * @param status Trạng thái mới của giao dịch thanh toán
+   * @returns Thông tin giao dịch thanh toán đã được cập nhật
+   * @throws BadRequestException nếu không tìm thấy giao dịch thanh toán
+   */
   async updatePaymentStatusByOrderCode(orderCode: string | number, status: payment_status) {
     try {
       // Đảm bảo orderCode là string
@@ -238,7 +244,14 @@ export class PaymentsService {
     }
   }
 
-  // Xử lý webhook từ PayOS
+  /**
+   * Xử lý webhook từ cổng thanh toán (PayOS)
+   * - Cập nhật trạng thái thanh toán
+   * - Tạo enrollment nếu thanh toán thành công
+   * 
+   * @param data Dữ liệu từ cổng thanh toán
+   * @returns Kết quả xử lý webhook
+   */
   async handlePaymentWebhook(data: any) {
     try {
       const { orderCode, status } = data;
@@ -295,6 +308,11 @@ export class PaymentsService {
     }
   }
 
+  /**
+   * Lấy danh sách tất cả các giao dịch thanh toán
+   * 
+   * @returns Danh sách các giao dịch thanh toán
+   */
   async getAllPayments() {
     try {
       const payments = await this.prisma.payment.findMany({
@@ -303,12 +321,9 @@ export class PaymentsService {
         }
       });
       
-      return {
-        data: payments,
-        total: payments.length
-      };
+      return payments;
     } catch (error) {
-      this.logger.error('Error getting all payments', error);
+      this.logger.error("Error getting all payments:", error);
       throw error;
     }
   }

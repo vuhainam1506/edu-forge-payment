@@ -13,7 +13,8 @@ RUN npx prisma generate
 
 # Copy source code and build application
 COPY . .
-RUN npm run build
+# Hiển thị lỗi chi tiết hơn khi build
+RUN npm run build || (echo "Build failed with error:" && cat /tmp/build-error.log && exit 1)
 
 # Production stage
 FROM node:20-alpine AS production
