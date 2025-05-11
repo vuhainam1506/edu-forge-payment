@@ -66,9 +66,7 @@ export class PaymentsService {
         ? Number.parseInt(data.ordercode) 
         : data.ordercode;
 
-      const paymentMethod = typeof data.method === "string" 
-        ? (data.method as payment_method) 
-        : data.method || "BANK_TRANSFER";
+      const paymentMethod = "BANK_TRANSFER";
 
       const paymentLinkData = {
         orderCode: orderCode,
