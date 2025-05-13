@@ -2,6 +2,7 @@ import { Injectable, Logger, BadRequestException } from "@nestjs/common";
 import { PrismaClient, type payment_status, type payment_method } from "@prisma/client";
 import axios from 'axios';
 import { Resend } from "resend";
+import { ConfigService } from "@nestjs/config";
 
 const PayOS = require("@payos/node");
 
@@ -23,17 +24,27 @@ export class PaymentsService {
   private payos: any;
   private readonly logger = new Logger(PaymentsService.name);
   private prisma: PrismaClient;
+  private configService: ConfigService;
 
-  constructor() {
+  constructor(configService: ConfigService) {
     this.prisma = new PrismaClient();
+    this.configService = configService;
     
     try {
       this.logger.log("Initializing PayOS instance");
+      
+      // Lấy thông tin môi trường từ biến môi trường
+      const environment = process.env.PAYOS_ENVIRONMENT || 'sandbox';
+      this.logger.log(`Using PayOS environment: ${environment}`);
+      
+      // Khởi tạo PayOS với các thông số từ biến môi trường
       this.payos = new PayOS(
         process.env.PAYOS_CLIENT_ID,
         process.env.PAYOS_API_KEY,
-        process.env.PAYOS_CHECKSUM_KEY
+        process.env.PAYOS_CHECKSUM_KEY,
+        environment // Thêm tham số environment
       );
+      
       this.logger.log("PayOS instance created successfully");
     } catch (error) {
       this.logger.error("Error creating PayOS instance", error);
@@ -78,7 +89,13 @@ export class PaymentsService {
         cancelUrl: data.cancelUrl || process.env.DEFAULT_CANCEL_URL,
       };
 
+      // Ghi log để debug
+      this.logger.log(`Creating payment link with data: ${JSON.stringify(paymentLinkData)}`);
+
       const paymentLink = await this.payos.createPaymentLink(paymentLinkData);
+      
+      // Ghi log kết quả từ PayOS
+      this.logger.log(`PayOS response: ${JSON.stringify(paymentLink)}`);
 
       const payment = await this.prisma.payment.create({
         data: {
@@ -103,7 +120,7 @@ export class PaymentsService {
         checkoutUrl: paymentLink.checkoutUrl,
       };
     } catch (error) {
-      this.logger.error(`Error creating payment: ${error.message}`);
+      this.logger.error(`Error creating payment: ${error.message}`, error.stack);
       throw error;
     }
   }
