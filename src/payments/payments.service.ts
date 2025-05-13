@@ -84,8 +84,8 @@ export class PaymentsService {
         amount: Number(data.amount),
         description: data.description,
         returnUrl: data.returnUrl
-          ? `${data.returnUrl}?orderCode=${orderCode}`
-          : `${process.env.DEFAULT_RETURN_URL}?orderCode=${orderCode}`,
+          ? `${data.returnUrl}?orderCode=${orderCode}&status=COMPLETED`
+          : `${process.env.DEFAULT_RETURN_URL}?orderCode=${orderCode}&status=COMPLETED`,
         cancelUrl: data.cancelUrl || process.env.DEFAULT_CANCEL_URL,
       };
 
