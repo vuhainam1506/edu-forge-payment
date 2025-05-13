@@ -18,6 +18,7 @@ services:
       - PAYOS_CLIENT_ID=${PAYOS_CLIENT_ID}
       - PAYOS_API_KEY=${PAYOS_API_KEY}
       - PAYOS_CHECKSUM_KEY=${PAYOS_CHECKSUM_KEY}
+      - PAYOS_ENVIRONMENT=${PAYOS_ENVIRONMENT:-sandbox}
       - RESEND_API_KEY=${RESEND_API_KEY}
       - DEFAULT_RETURN_URL=${DEFAULT_RETURN_URL}
       - DEFAULT_CANCEL_URL=${DEFAULT_CANCEL_URL}
@@ -57,6 +58,7 @@ services:
 networks:
   edu-forge-network:
     driver: bridge
+
 
 
 
