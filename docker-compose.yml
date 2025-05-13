@@ -23,8 +23,6 @@ services:
       - DEFAULT_RETURN_URL=${DEFAULT_RETURN_URL}
       - DEFAULT_CANCEL_URL=${DEFAULT_CANCEL_URL}
     restart: unless-stopped
-    networks:
-      - edu-forge-network
     command: >
       sh -c "until nc -z postgres 5432; do
         echo 'Waiting for PostgreSQL to be ready...';
@@ -47,8 +45,6 @@ services:
     ports:
       - "5433:5432"  # Changed to avoid conflict with enrollment service
     restart: unless-stopped
-    networks:
-      - edu-forge-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -58,6 +54,7 @@ services:
 networks:
   edu-forge-network:
     driver: bridge
+
 
 
 
