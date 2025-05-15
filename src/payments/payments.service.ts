@@ -130,18 +130,35 @@ export class PaymentsService {
    * 
    * @param id ID của giao dịch thanh toán
    * @returns Thông tin chi tiết của giao dịch thanh toán
-   * @throws BadRequestException nếu không tìm thấy giao dịch thanh toán
+   * @throws BadRequestException nếu không tìm thấy giao dịch thanh toán hoặc ID không hợp lệ
    */
   async getPaymentById(id: string) {
-    const payment = await this.prisma.payment.findUnique({
-      where: { id },
-    });
+    try {
+      // Kiểm tra xem id có phải là UUID hợp lệ không
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(id)) {
+        throw new BadRequestException(`Invalid payment ID format: ${id}`);
+      }
 
-    if (!payment) {
-      throw new BadRequestException(`Payment with ID ${id} not found`);
+      const payment = await this.prisma.payment.findUnique({
+        where: { id },
+      });
+
+      if (!payment) {
+        throw new BadRequestException(`Payment with ID ${id} not found`);
+      }
+
+      return payment;
+    } catch (error) {
+      // Nếu lỗi đã là BadRequestException, ném lại
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      
+      // Xử lý lỗi Prisma liên quan đến UUID không hợp lệ
+      this.logger.error(`Error getting payment by ID ${id}: ${error.message}`);
+      throw new BadRequestException(`Invalid payment ID format or payment not found: ${id}`);
     }
-
-    return payment;
   }
 
   /**
@@ -317,55 +334,71 @@ export class PaymentsService {
    */
   async getPaymentStats() {
     try {
-      // Lấy tất cả các giao dịch thành công
-      const completedPayments = await this.prisma.payment.findMany({
+      // Tổng số giao dịch
+      const totalPayments = await this.prisma.payment.count();
+      
+      // Tổng doanh thu
+      const totalRevenue = await this.prisma.payment.aggregate({
+        _sum: {
+          amount: true,
+        },
         where: {
-          status: 'COMPLETED'
-        }
+          status: 'COMPLETED',
+        },
       });
       
-      // Lấy tất cả các giao dịch
-      const allPayments = await this.prisma.payment.findMany();
-      
-      // Lấy các giao dịch trong 30 ngày qua
+      // Doanh thu 30 ngày gần đây
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const recentPayments = await this.prisma.payment.findMany({
+      const recentRevenue = await this.prisma.payment.aggregate({
+        _sum: {
+          amount: true,
+        },
         where: {
           status: 'COMPLETED',
           createdAt: {
-            gte: thirtyDaysAgo
-          }
-        }
+            gte: thirtyDaysAgo,
+          },
+        },
       });
       
-      // Tính toán các thống kê
-      const totalRevenue = completedPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
-      const revenueLast30Days = recentPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
-      const averageTransactionValue = completedPayments.length > 0 
-        ? totalRevenue / completedPayments.length 
-        : 0;
-      const failedTransactionsRate = allPayments.length > 0 
-        ? allPayments.filter(p => p.status === 'FAILED').length / allPayments.length 
-        : 0;
-      
-      // Phân tích phương thức thanh toán
-      const paymentMethodsBreakdown = {};
-      completedPayments.forEach(payment => {
-        const method = payment.method || 'unknown';
-        paymentMethodsBreakdown[method] = (paymentMethodsBreakdown[method] || 0) + 1;
+      // Số lượng giao dịch theo trạng thái
+      const paymentsByStatus = await this.prisma.payment.groupBy({
+        by: ['status'],
+        _count: {
+          id: true,
+        },
       });
+      
+      // Giá trị trung bình của giao dịch
+      const averagePayment = await this.prisma.payment.aggregate({
+        _avg: {
+          amount: true,
+        },
+        where: {
+          status: 'COMPLETED',
+        },
+      });
+      
+      // Tỷ lệ thất bại
+      const failureRate = totalPayments > 0 
+        ? (paymentsByStatus.find(p => p.status === 'FAILED')?._count?.id || 0) / totalPayments 
+        : 0;
       
       return {
-        totalRevenue,
-        revenueLast30Days,
-        averageTransactionValue,
-        failedTransactionsRate,
-        paymentMethodsBreakdown
+        totalPayments,
+        totalRevenue: totalRevenue._sum.amount || 0,
+        recentRevenue: recentRevenue._sum.amount || 0,
+        paymentsByStatus: paymentsByStatus.map(item => ({
+          status: item.status,
+          count: item._count.id,
+        })),
+        averagePayment: averagePayment._avg.amount || 0,
+        failureRate: Math.round(failureRate * 100) / 100, // Làm tròn 2 chữ số thập phân
       };
     } catch (error) {
-      this.logger.error('Error getting payment stats:', error);
+      this.logger.error(`Error getting payment statistics: ${error.message}`);
       throw new Error('Failed to get payment statistics');
     }
   }
