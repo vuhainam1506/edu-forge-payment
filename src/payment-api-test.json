@@ -1,0 +1,13 @@
+{
+  "name": "Get Payment Statistics",
+  "request": {
+    "method": "GET",
+    "url": {
+      "raw": "{{base_url}}/payments/stats",
+      "host": ["{{base_url}}"],
+      "path": ["payments", "stats"]
+    },
+    "description": "Retrieve payment statistics including total revenue, recent revenue, and payment method breakdown"
+  },
+  "response": []
+}

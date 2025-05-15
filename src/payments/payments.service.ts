@@ -309,5 +309,65 @@ export class PaymentsService {
       }
     });
   }
+
+  /**
+   * Lấy thống kê về thanh toán
+   * 
+   * @returns Thông tin thống kê thanh toán
+   */
+  async getPaymentStats() {
+    try {
+      // Lấy tất cả các giao dịch thành công
+      const completedPayments = await this.prisma.payment.findMany({
+        where: {
+          status: 'COMPLETED'
+        }
+      });
+      
+      // Lấy tất cả các giao dịch
+      const allPayments = await this.prisma.payment.findMany();
+      
+      // Lấy các giao dịch trong 30 ngày qua
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      
+      const recentPayments = await this.prisma.payment.findMany({
+        where: {
+          status: 'COMPLETED',
+          createdAt: {
+            gte: thirtyDaysAgo
+          }
+        }
+      });
+      
+      // Tính toán các thống kê
+      const totalRevenue = completedPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+      const revenueLast30Days = recentPayments.reduce((sum, payment) => sum + Number(payment.amount), 0);
+      const averageTransactionValue = completedPayments.length > 0 
+        ? totalRevenue / completedPayments.length 
+        : 0;
+      const failedTransactionsRate = allPayments.length > 0 
+        ? allPayments.filter(p => p.status === 'FAILED').length / allPayments.length 
+        : 0;
+      
+      // Phân tích phương thức thanh toán
+      const paymentMethodsBreakdown = {};
+      completedPayments.forEach(payment => {
+        const method = payment.method || 'unknown';
+        paymentMethodsBreakdown[method] = (paymentMethodsBreakdown[method] || 0) + 1;
+      });
+      
+      return {
+        totalRevenue,
+        revenueLast30Days,
+        averageTransactionValue,
+        failedTransactionsRate,
+        paymentMethodsBreakdown
+      };
+    } catch (error) {
+      this.logger.error('Error getting payment stats:', error);
+      throw new Error('Failed to get payment statistics');
+    }
+  }
 }
 

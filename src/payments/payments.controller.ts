@@ -178,5 +178,18 @@ export class PaymentsController {
     this.logger.log('Getting all payments');
     return this.paymentsService.getAllPayments();
   }
+
+  /**
+   * Lấy thống kê về thanh toán
+   * 
+   * @returns Thông tin thống kê thanh toán bao gồm tổng doanh thu, doanh thu 30 ngày qua, giá trị trung bình, tỷ lệ thất bại
+   * 
+   * @example
+   * GET /api/v1/payments/stats
+   */
+  @Get('stats')
+  async getPaymentStats() {
+    return this.paymentsService.getPaymentStats();
+  }
 }
 
