@@ -371,6 +371,17 @@ export class PaymentsService {
         },
       });
       
+      // Phân tích theo phương thức thanh toán
+      const paymentsByMethod = await this.prisma.payment.groupBy({
+        by: ['method'],
+        _count: {
+          id: true,
+        },
+        where: {
+          status: 'COMPLETED',
+        },
+      });
+      
       // Giá trị trung bình của giao dịch
       const averagePayment = await this.prisma.payment.aggregate({
         _avg: {
@@ -386,16 +397,18 @@ export class PaymentsService {
         ? (paymentsByStatus.find(p => p.status === 'FAILED')?._count?.id || 0) / totalPayments 
         : 0;
       
+      // Tạo đối tượng phân tích phương thức thanh toán
+      const paymentMethodsBreakdown = {};
+      paymentsByMethod.forEach(item => {
+        paymentMethodsBreakdown[item.method.toLowerCase()] = item._count.id;
+      });
+      
       return {
-        totalPayments,
         totalRevenue: totalRevenue._sum.amount || 0,
-        recentRevenue: recentRevenue._sum.amount || 0,
-        paymentsByStatus: paymentsByStatus.map(item => ({
-          status: item.status,
-          count: item._count.id,
-        })),
-        averagePayment: averagePayment._avg.amount || 0,
-        failureRate: Math.round(failureRate * 100) / 100, // Làm tròn 2 chữ số thập phân
+        revenueLast30Days: recentRevenue._sum.amount || 0,
+        averageTransactionValue: averagePayment._avg.amount || 0,
+        failedTransactionsRate: Math.round(failureRate * 100) / 100,
+        paymentMethodsBreakdown
       };
     } catch (error) {
       this.logger.error(`Error getting payment statistics: ${error.message}`);
