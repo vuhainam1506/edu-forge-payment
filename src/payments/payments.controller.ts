@@ -77,18 +77,35 @@ export class PaymentsController {
   }
 
   /**
-   * Lấy thông tin chi tiết của một giao dịch thanh toán theo ID
+   * Xử lý webhook từ cổng thanh toán (PayOS)
+   * Cập nhật trạng thái thanh toán và thực hiện các hành động liên quan
    * 
-   * @param id ID của giao dịch thanh toán
-   * @returns Thông tin chi tiết của giao dịch thanh toán
+   * @param data Dữ liệu từ cổng thanh toán
+   * @param signature Chữ ký xác thực từ cổng thanh toán
+   * @returns Kết quả xử lý webhook
    * 
    * @example
-   * GET /api/v1/payments/123e4567-e89b-12d3-a456-426614174000
+   * POST /api/v1/payments/webhook
+   * Headers: { "x-payos-signature": "abc123..." }
+   * Body: { "orderCode": "230506095712", "status": "PAID", ... }
    */
-  @Get(':id')
-  async getPayment(@Param('id') id: string) {
-    this.logger.log(`Getting payment with ID: ${id}`);
-    return this.paymentsService.getPaymentById(id);
+  @Post("webhook")
+  async handleWebhook(@Body() data: any, @Headers('x-payos-signature') signature: string) {
+    this.logger.log(`Received payment webhook: ${JSON.stringify(data)}`)
+    return this.paymentsService.handlePaymentWebhook(data)
+  }
+
+  /**
+   * Lấy thống kê về thanh toán
+   * 
+   * @returns Thông tin thống kê thanh toán bao gồm tổng doanh thu, doanh thu 30 ngày qua, giá trị trung bình, tỷ lệ thất bại
+   * 
+   * @example
+   * GET /api/v1/payments/stats
+   */
+  @Get('stats')
+  async getPaymentStats() {
+    return this.paymentsService.getPaymentStats();
   }
 
   /**
@@ -104,6 +121,35 @@ export class PaymentsController {
   async getPaymentByOrderCode(@Param('orderCode') orderCode: string) {
     this.logger.log(`Getting payment with order code: ${orderCode}`);
     return this.paymentsService.getPaymentByOrderCode(orderCode);
+  }
+
+  /**
+   * Lấy danh sách tất cả các giao dịch thanh toán
+   * 
+   * @returns Danh sách các giao dịch thanh toán
+   * 
+   * @example
+   * GET /api/v1/payments
+   */
+  @Get()
+  async getAllPayments() {
+    this.logger.log('Getting all payments');
+    return this.paymentsService.getAllPayments();
+  }
+
+  /**
+   * Lấy thông tin chi tiết của một giao dịch thanh toán theo ID
+   * 
+   * @param id ID của giao dịch thanh toán
+   * @returns Thông tin chi tiết của giao dịch thanh toán
+   * 
+   * @example
+   * GET /api/v1/payments/123e4567-e89b-12d3-a456-426614174000
+   */
+  @Get(':id')
+  async getPayment(@Param('id') id: string) {
+    this.logger.log(`Getting payment with ID: ${id}`);
+    return this.paymentsService.getPaymentById(id);
   }
 
   /**
@@ -138,58 +184,6 @@ export class PaymentsController {
   async updateStatusByOrderCode(@Param('orderCode') orderCode: string, @Body('status') status: payment_status) {
     this.logger.log(`Updating payment with order code ${orderCode} status to ${status}`)
     return this.paymentsService.updatePaymentStatusByOrderCode(orderCode, status)
-  }
-
-  /**
-   * Xử lý webhook từ cổng thanh toán (PayOS)
-   * Cập nhật trạng thái thanh toán và thực hiện các hành động liên quan
-   * 
-   * @param data Dữ liệu từ cổng thanh toán
-   * @param signature Chữ ký xác thực từ cổng thanh toán
-   * @returns Kết quả xử lý webhook
-   * 
-   * @example
-   * POST /api/v1/payments/webhook
-   * Headers: { "x-payos-signature": "abc123..." }
-   * Body: { "orderCode": "230506095712", "status": "PAID", ... }
-   */
-  @Post("webhook")
-  async handleWebhook(@Body() data: any, @Headers('x-payos-signature') signature: string) {
-    this.logger.log(`Received payment webhook: ${JSON.stringify(data)}`)
-
-    // Trong thực tế, bạn cần xác thực signature từ PayOS
-    // if (!this.paymentsService.verifyWebhookSignature(data, signature)) {
-    //   throw new BadRequestException('Invalid webhook signature');
-    // }
-
-    return this.paymentsService.handlePaymentWebhook(data)
-  }
-
-  /**
-   * Lấy danh sách tất cả các giao dịch thanh toán
-   * 
-   * @returns Danh sách các giao dịch thanh toán
-   * 
-   * @example
-   * GET /api/v1/payments
-   */
-  @Get()
-  async getAllPayments() {
-    this.logger.log('Getting all payments');
-    return this.paymentsService.getAllPayments();
-  }
-
-  /**
-   * Lấy thống kê về thanh toán
-   * 
-   * @returns Thông tin thống kê thanh toán bao gồm tổng doanh thu, doanh thu 30 ngày qua, giá trị trung bình, tỷ lệ thất bại
-   * 
-   * @example
-   * GET /api/v1/payments/stats
-   */
-  @Get('stats')
-  async getPaymentStats() {
-    return this.paymentsService.getPaymentStats();
   }
 }
 
