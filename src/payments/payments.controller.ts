@@ -103,7 +103,7 @@ export class PaymentsController {
    * @example
    * GET /api/v1/payments/stats
    */
-  @Get('stats')
+  @Get('/get/stats')
   async getPaymentStats() {
     return this.paymentsService.getPaymentStats();
   }
