@@ -403,12 +403,49 @@ export class PaymentsService {
         paymentMethodsBreakdown[item.method.toLowerCase()] = item._count.id;
       });
       
+      // Thêm tính toán doanh thu theo tháng
+      const currentDate = new Date();
+      const monthlyRevenue = [];
+      
+      // Tạo dữ liệu cho 5 tháng gần nhất
+      for (let i = 4; i >= 0; i--) {
+        const date = new Date();
+        date.setMonth(currentDate.getMonth() - i);
+        
+        const year = date.getFullYear();
+        const month = date.getMonth() + 1;
+        const monthFormatted = `${year}-${month.toString().padStart(2, '0')}`;
+        
+        // Tính doanh thu cho tháng này
+        const startOfMonth = new Date(year, month - 1, 1);
+        const endOfMonth = new Date(year, month, 0);
+        
+        const revenue = await this.prisma.payment.aggregate({
+          _sum: {
+            amount: true,
+          },
+          where: {
+            status: 'COMPLETED',
+            createdAt: {
+              gte: startOfMonth,
+              lte: endOfMonth,
+            },
+          },
+        });
+        
+        monthlyRevenue.push({
+          month: monthFormatted,
+          total: revenue._sum.amount || 0
+        });
+      }
+      
       return {
         totalRevenue: totalRevenue._sum.amount || 0,
         revenueLast30Days: recentRevenue._sum.amount || 0,
         averageTransactionValue: averagePayment._avg.amount || 0,
         failedTransactionsRate: Math.round(failureRate * 100) / 100,
-        paymentMethodsBreakdown
+        paymentMethodsBreakdown,
+        monthlyRevenue
       };
     } catch (error) {
       this.logger.error(`Error getting payment statistics: ${error.message}`);
