@@ -61,16 +61,16 @@ export class PaymentsService {
    * @returns Thông tin thanh toán đã tạo bao gồm ID, mã đơn hàng và URL thanh toán
    */
   async createPayment(data: {
-    amount: number
-    ordercode: string | number
-    description: string
-    method?: payment_method | string
-    serviceName?: string
-    userId?: string
-    serviceId?: string
-    returnUrl?: string
-    cancelUrl?: string
-    metadata?: PaymentMetadata
+    amount: number;
+    ordercode: string | number;
+    description: string;
+    method?: payment_method | string;
+    serviceName?: string;
+    userId?: string;
+    serviceId?: string;
+    returnUrl?: string;
+    cancelUrl?: string;
+    metadata?: PaymentMetadata;
   }) {
     try {
       const orderCode = typeof data.ordercode === "string" 
@@ -234,24 +234,39 @@ export class PaymentsService {
         updatedAt: new Date(),
       },
     });
-
-    if (status === "COMPLETED") {
+// Update the email sending code in updatePaymentStatusByOrderCode method:
+if (status === "COMPLETED") {
+  try {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    
+    // Get user info if userId exists in payment
+    let userEmail = "thinhdz1500@gmail.com"; // Default fallback email
+    
+    if (payment.userId) {
       try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-          from: "Acme <payment@eduforge.io.vn>",
-          to: ["thinhdz1500@gmail.com"],
-          subject: "Thanh toán khóa học thành công",
-          html: `
-            <h1>Thanh toán thành công</h1>
-            <p>Cảm ơn bạn đã thanh toán. Mã đơn hàng của bạn là: ${updatedPayment.ordercode}</p>
-            <p>Số tiền: ${updatedPayment.amount} VND</p>
-          `,
-        });
-      } catch (emailError) {
-        this.logger.error("Error sending email notification", emailError);
+        const userInfo = await this.getUserInfo(payment.userId);
+        if (userInfo && userInfo.email) {
+          userEmail = userInfo.email;
+        }
+      } catch (userError) {
+        this.logger.error(`Failed to get user email, using default: ${userError.message}`);
       }
     }
+    
+    await resend.emails.send({
+      from: "Acme <payment@eduforge.io.vn>",
+      to: [userEmail],
+      subject: "Thanh toán khóa học thành công",
+      html: `
+        <h1>Thanh toán thành công</h1>
+        <p>Cảm ơn bạn đã thanh toán. Mã đơn hàng của bạn là: ${updatedPayment.ordercode}</p>
+        <p>Số tiền: ${updatedPayment.amount} VND</p>
+      `,
+    });
+  } catch (emailError) {
+    this.logger.error("Error sending email notification", emailError);
+  }
+}
 
     return updatedPayment;
   }
@@ -450,6 +465,37 @@ export class PaymentsService {
     } catch (error) {
       this.logger.error(`Error getting payment statistics: ${error.message}`);
       throw new Error('Failed to get payment statistics');
+    }
+  }
+
+  /**
+   * Fetches user information from the internal user service
+   * 
+   * @param userId User ID to retrieve information for
+   * @returns User information including email, name, and active status
+   * @throws Error if the user information cannot be retrieved
+   */
+  async getUserInfo(userId: string) {
+    try {
+      const response = await axios.get(
+        `http://eduforge.io.vn:3001/dashboard/internal/user/${userId}`,
+        {
+          headers: {
+            'x-api-key': 'sk_course_service_12345',
+            'x-service-name': 'courseService'
+          }
+        }
+      );
+      
+      return {
+        id: response.data._id,
+        email: response.data.email,
+        name: response.data.name,
+        isActive: response.data.isActive
+      };
+    } catch (error) {
+      this.logger.error(`Error fetching user info for ID ${userId}: ${error.message}`);
+      throw new Error(`Failed to retrieve user information: ${error.message}`);
     }
   }
 }
